@@ -9,22 +9,36 @@ from bs4 import BeautifulSoup
 # CONFIG
 # ==============================
 
+jig_outdir = "jigyasu"
+ini_outdir = "initiated"
 jig_uidno_file_path = "jigyasu_uid.txt"
 ini_uidno_file_path = "initiated_uid.txt"
-jig_csv_path = "od_jigyasu_details.csv"
-ini_csv_path = "od_initiated_details.csv"
+jig_csv_file = "od_jigyasu_details.csv"
+ini_csv_file = "od_initiated_details.csv"
 
 INDEX_URL = "https://forma.dayalbagh.org.in/index.php"
 OD_BRANCH_CODE = "B000214"
 
 session = requests.Session()
 
-columns = [
+jig_columns = [
     "UID", "Affiliation", "NAME", "Father UID", "Fathers Name",
     "Mother UID", "Mother Name", "Spouse UID", "Spouse Name",
     "Date of Birth", "Date of Registration", "Occupation",
     "Address", "Email ID", "Phone Number", "Qualification", "Nationality"
 ]
+
+ini_columns = [
+    "UID", "Affiliation", "NAME", "Fathers Name", "Husbands Name",
+    "Mother UID", "Mother Name", "Spouse UID", "Spouse Name",
+    "Date of Birth", "Date of Registration", "Occupation",
+    "Address", "Email ID", "Phone Number", "Qualification", "Nationality"
+]
+
+skip_fields = {"Nee", "Caste"}
+
+file_path_list = [f'output/{jig_outdir}/{jig_csv_file}',
+                  f'output/{ini_outdir}/{ini_csv_file}']
 # ==============================
 
 def get_login_dets():
@@ -62,7 +76,7 @@ def get_login_page(login_dets):
 
     return login_response
 
-def save_data_to_csv(outdir, outfile, data):
+def save_data_to_csv(outdir, outfile, data, columns):
     output_dir = Path(f"output/{outdir}")
     output_dir.mkdir(parents=True, exist_ok=True)
     file_path = f'{output_dir}/{outfile}'
@@ -73,7 +87,7 @@ def save_data_to_csv(outdir, outfile, data):
         writer = csv.writer(f)
         if not file_exists:
             writer.writerow(columns)
-        writer.writerow([data.get(col, "") for col in columns])
+        writer.writerow([data.get(col, "") for col in columns if col not in skip_fields])
 
 def parse_html_response(text):
     soup = BeautifulSoup(text, "html.parser")
@@ -92,27 +106,32 @@ def parse_html_response(text):
 
     return data_dict
 
-def get_person_profile_data(outdir, outfile, url):
+def get_person_profile_data(outdir, outfile, url, columns):
     response = session.get(url)
     if response.status_code == 200:
+        #print(response.text)
         data = parse_html_response(response.text)
-        save_data_to_csv(outdir=outdir, outfile=outfile, data=data)
+        save_data_to_csv(outdir=outdir, outfile=outfile, data=data, columns=columns)
 
-def get_person_details(outdir, outfile, uidno_file):
-    data_url = f"{INDEX_URL}"
+def get_person_details(url, outdir, outfile, uidno_file, columns):
+    data_url = url
 
     if os.path.exists(uidno_file):
         with open(uidno_file, "r") as file:
             for line in file:
                 uidno = (line.strip())
-                data_url = f'{data_url}/viewonjigyasuselect?_uid={uidno}&_branchid={OD_BRANCH_CODE}'
-                get_person_profile_data(outdir=outdir, outfile=outfile, url=data_url)
-                print(f"Saving Data for {uidno} to: {outdir}/{outfile}")
-                data_url = f"{INDEX_URL}"
+                data_url = f'{data_url}_uid={uidno}&_branchid={OD_BRANCH_CODE}'
+                get_person_profile_data(outdir=outdir, outfile=outfile, url=data_url, columns=columns)
+                data_url = url
 
     else:
         print("File does not exist")
 
+def cleanup_file():
+   for file_path in file_path_list:
+       # Check if file exists and remove it
+        if os.path.isfile(file_path):
+            os.remove(file_path)
 # ==============================
 
 def main():
@@ -120,11 +139,24 @@ def main():
     if login_dets is not  None:
         response = get_login_page(login_dets=login_dets)
         if response.status_code == 200:
+            cleanup_file()
             # Get Jigyasu details
-            get_person_details(outdir="jigyasu", outfile=jig_csv_path, uidno_file=jig_uidno_file_path)
+            print(f"*******************************************************")
+            print(f"Saving Data for Jigyasu brothers and sisters...")
+            get_person_details(url=f"{INDEX_URL}/viewonjigyasuselect?"
+                               ,outdir=jig_outdir
+                               ,outfile=jig_csv_file
+                               ,uidno_file=jig_uidno_file_path
+                               ,columns=jig_columns)
+            print(f"*******************************************************")
+            print(f"Saving Data for Initiated brothers and sisters...")
             # Get Initiated details
-            # get_person_details(outdir="initiated", outfile=jig_csv_path, uidno_file=ini_uidno_file_path)
+            get_person_details(url=f"{INDEX_URL}/viewonuidselect?"
+                               ,outdir=ini_outdir
+                               ,outfile=ini_csv_file
+                               ,uidno_file=ini_uidno_file_path
+                               ,columns=ini_columns)
+            print(f"*******************************************************")
 
 if __name__ == "__main__":
     main()
-
