@@ -30,9 +30,9 @@ jig_columns = [
 
 ini_columns = [
     "UID", "Affiliation", "NAME", "Fathers Name", "Husbands Name",
-    "Mother UID", "Mother Name", "Spouse UID", "Spouse Name",
-    "Date of Birth", "Date of Registration", "Occupation",
-    "Address", "Email ID", "Phone Number", "Qualification", "Nationality"
+    "Date of Birth", "Occupation", "Address", "Email ID", "Phone Number",
+    "Date of First Initiation", "Date of Second Initiation",
+    "Qualification", "Nationality", "Membership Type"
 ]
 
 skip_fields = {"Nee", "Caste"}
